@@ -6,38 +6,30 @@ A hybrid decision-support analytics engine combining **Text-to-SQL**, **Cosine-S
 
 ## 1. System Architecture
 
+```mermaid
+flowchart TD
+    UserQuery(["Natural Language Query"]) --> Fork{"Hybrid Pipeline"}
+    
+    %% Branch 1: SQL
+    Fork --> TextToSQL["Text-to-SQL Engine<br/>• Schema-grounded Gemini prompt<br/>• Automated model fallback"]
+    TextToSQL --> SQLiteDB[("Read-Only SQLite DB<br/>• URI: mode=ro<br/>• PRAGMA query_only = ON")]
+    
+    %% Branch 2: RAG
+    Fork --> Embedding["Dense Vector Retrieval<br/>• gemini-embedding-001<br/>• Cosine similarity"]
+    Embedding --> Gate{"Relevance Gate<br/>Threshold >= 0.60"}
+    Gate -- "Score >= 0.60" --> DocPolicy["Matched Policy Excerpt"]
+    Gate -- "Score < 0.60" --> NoPolicy["Abstention: NOT_RETRIEVED"]
+    
+    %% Merging at Synthesis
+    SQLiteDB --> Synthesis["Evidence-Grounded Synthesis<br/>• Cites relational metrics<br/>• Cites policy Document ID"]
+    DocPolicy --> Synthesis
+    NoPolicy --> Synthesis
+    
+    %% Output
+    Synthesis --> API["FastAPI / Pydantic Contract<br/>• Validated response model<br/>• Auditable query & document trail"]
+    API --> FinalOutput(["JSON API Response"])
 
 
-                   User Natural Language Query
-                                │
-     ┌──────────────────────────┴──────────────────────────┐
-     ▼                                                     ▼
-┌───────────────────────────────┐     ┌────────────────────────────────┐
-│   Text-to-SQL Generation      │     │    Dense Vector Retrieval      │
-│  • Schema-conditioned prompt  │     │  • gemini-embedding-001        │
-│  • Automated model fallback   │     │  • Cosine similarity matching  │
-└──────────────┬────────────────┘     └──────────────┬─────────────────┘
-               │                                     │
-               ▼                                     ▼
-┌───────────────────────────────┐     ┌────────────────────────────────┐
-│   Read-Only SQLite Execution  │     │  Relevance Threshold Gate      │
-│  • URI connection: mode=ro    │     │  • Threshold >= 0.60           │
-│  • PRAGMA query_only = ON     │     │  • Abstains if unrelated       │
-└──────────────┬────────────────┘     └──────────────┬─────────────────┘
-               │                                     │
-               └──────────────────┬──────────────────┘
-                                  ▼
-               ┌──────────────────────────────────────┐
-               │      Evidence-Grounded Synthesis     │
-               │  • Reconciles SQL data + Policy memo │
-               │  • Strict source citation enforcement│
-               └──────────────────┬───────────────────┘
-                                  ▼
-               ┌──────────────────────────────────────┐
-               │       FastAPI / Pydantic Layer       │
-               │  • Typed schema validation           │
-               │  • Traceable evidence audit trail    │
-               └──────────────────────────────────────┘
 
 
 ## 2. Core Technical Capabilities
@@ -140,18 +132,12 @@ cd financial-decision-intelligence-assistant
 pip install fastapi uvicorn pydantic pandas scikit-learn numpy google-genai
 
 ### 3. Configure Credentials
-
 export GEMINI_API_KEY="your-api-key-here"
 # On Windows Command Prompt:
 # set GEMINI_API_KEY="your-api-key-here"
-
-
 ### 4. Run the API Server
-
-bash
 uvicorn main:app --reload
 Interactive Swagger API documentation will be available at `http://127.0.0.1:8000/docs`.
-
 
 ## 7. Known Architectural Trade-Offs & Roadmap
 
