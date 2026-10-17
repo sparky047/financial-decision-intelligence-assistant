@@ -1,36 +1,23 @@
 # Financial Decision Intelligence Assistant
 
-A hybrid decision-support analytics engine combining **Text-to-SQL**, **Cosine-Similarity Semantic Document Retrieval (RAG)**, and **Strict Pydantic Validation** to evaluate corporate financial performance and debt covenant compliance.
-
----
+A hybrid decision-support analytics engine combining **Text-to-SQL**, **Cosine-Similarity Semantic Document Retrieval (RAG)**, and **Strict Pydantic Validation** to evaluate corporate financial performance and debt covenant compliant
 
 ## 1. System Architecture
 
-```mermaid
-flowchart TD
-    UserQuery(["Natural Language Query"]) --> Fork{"Hybrid Pipeline"}
-    
-    %% Branch 1: SQL
-    Fork --> TextToSQL["Text-to-SQL Engine<br/>• Schema-grounded Gemini prompt<br/>• Automated model fallback"]
-    TextToSQL --> SQLiteDB[("Read-Only SQLite DB<br/>• URI: mode=ro<br/>• PRAGMA query_only = ON")]
-    
-    %% Branch 2: RAG
-    Fork --> Embedding["Dense Vector Retrieval<br/>• gemini-embedding-001<br/>• Cosine similarity"]
-    Embedding --> Gate{"Relevance Gate<br/>Threshold >= 0.60"}
-    Gate -- "Score >= 0.60" --> DocPolicy["Matched Policy Excerpt"]
-    Gate -- "Score < 0.60" --> NoPolicy["Abstention: NOT_RETRIEVED"]
-    
-    %% Merging at Synthesis
-    SQLiteDB --> Synthesis["Evidence-Grounded Synthesis<br/>• Cites relational metrics<br/>• Cites policy Document ID"]
-    DocPolicy --> Synthesis
-    NoPolicy --> Synthesis
-    
-    %% Output
-    Synthesis --> API["FastAPI / Pydantic Contract<br/>• Validated response model<br/>• Auditable query & document trail"]
-    API --> FinalOutput(["JSON API Response"])
+The pipeline processes user queries across two parallel retrieval channels before synthesizing a validated answer:
 
+1. **Structured Retrieval (Text-to-SQL):**
+   - User question is translated into SQLite syntax via Gemini using database schema context.
+   - Query executes on `financial_data.db` under driver-level read-only protection (`mode=ro`, `PRAGMA query_only = ON`).
+   - Computes deterministic metrics (revenue, margins, credit score) directly in the database.
 
+2. **Unstructured Retrieval (Semantic RAG):**
+   - Question is embedded via `gemini-embedding-001` and matched against policy memos using cosine similarity.
+   - **Relevance Gate (Threshold = 0.60):** If cosine similarity is below `0.60`, the system marks the policy as `NOT_RETRIEVED` rather than forcing an irrelevant document.
 
+3. **Synthesis & API Layer:**
+   - Gemini synthesizes an executive summary citing both numerical database metrics and the specific Document ID.
+   - Output is validated and served via FastAPI using strict Pydantic v2 schemas with an auditable evidence trail.
 
 ## 2. Core Technical Capabilities
 
@@ -133,8 +120,8 @@ pip install fastapi uvicorn pydantic pandas scikit-learn numpy google-genai
 
 ### 3. Configure Credentials
 export GEMINI_API_KEY="your-api-key-here"
-# On Windows Command Prompt:
-# set GEMINI_API_KEY="your-api-key-here"
+### On Windows Command Prompt:
+set GEMINI_API_KEY="your-api-key-here"
 ### 4. Run the API Server
 uvicorn main:app --reload
 Interactive Swagger API documentation will be available at `http://127.0.0.1:8000/docs`.
